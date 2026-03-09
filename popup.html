@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visa Slot Alert</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+      body {
+        margin: 0;
+        width: 320px;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      main {
+        padding: 14px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      p {
+        margin: 6px 0;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .status {
+        font-weight: 700;
+      }
+      .open {
+        color: #b91c1c;
+      }
+      .closed {
+        color: #0369a1;
+      }
+      .error {
+        color: #b45309;
+      }
+      button {
+        margin-top: 10px;
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 12px;
+        font-weight: 600;
+        color: #fff;
+        background: #1d4ed8;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      a {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 12px;
+      }
+      .muted {
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Visa Slot Alert</h1>
+      <p class="muted">Target: July 2026</p>
+      <p class="status closed" id="status">Checking...</p>
+      <p class="muted" id="lastCheck">Last check: never</p>
+      <p class="muted" id="evidence"></p>
+      <button id="checkNow">Check now</button>
+      <br />
+      <a href="options.html" target="_blank" rel="noreferrer">Open settings</a>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visa Slot Alert Settings</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      main {
+        max-width: 700px;
+        margin: 20px auto;
+        padding: 0 16px 20px;
+      }
+      h1 {
+        margin: 0 0 14px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+      }
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      input {
+        width: 110px;
+        padding: 6px 8px;
+        border: 1px solid #94a3b8;
+        border-radius: 8px;
+      }
+      button {
+        margin-top: 12px;
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-weight: 600;
+        color: #fff;
+        background: #1d4ed8;
+        cursor: pointer;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .small {
+        font-size: 13px;
+        color: #334155;
+      }
+      #status {
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Visa Slot Alert Settings</h1>
+      <div class="card">
+        <p><strong>Target URL:</strong> <span id="targetUrl"></span></p>
+        <p><strong>Target month:</strong> July 2026</p>
+        <label for="intervalMinutes">Check interval (minutes, 1-60)</label>
+        <input id="intervalMinutes" type="number" min="1" max="60" />
+        <button id="save">Save</button>
+        <p class="small">
+          The extension only notifies when state changes from closed to open.
+        </p>
+        <p id="status"></p>
+      </div>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
