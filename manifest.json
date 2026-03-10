@@ -1,11 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Visa Slot Alert - July 2026",
+  "name": "Visa Slot Alert",
   "version": "1.0.0",
   "description": "Checks checkvisaslots.com and alerts when July 2026 L-1 Individual Regular slots are open.",
-  "permissions": ["alarms", "storage", "notifications"],
-  "host_permissions": ["https://checkvisaslots.com/*"],
+  "permissions": ["alarms", "storage", "notifications", "tabs", "scripting"],
+  "host_permissions": ["https://checkvisaslots.com/*", "https://api.emailjs.com/*"],
   "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
     "128": "icon-128.png"
   },
   "background": {
@@ -15,6 +18,9 @@
   "action": {
     "default_title": "Visa Slot Alert",
     "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
       "128": "icon-128.png"
     },
     "default_popup": "popup.html"

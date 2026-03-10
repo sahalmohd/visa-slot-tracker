@@ -66,12 +66,22 @@
   <body>
     <main>
       <h1>Visa Slot Alert</h1>
-      <p class="muted">Target: July 2026</p>
+      <p class="muted" id="targetMonth">Target: July 2026</p>
       <p class="status closed" id="status">Checking...</p>
       <p class="muted" id="lastCheck">Last check: never</p>
+      <p class="muted" id="source">Source: unknown</p>
+      <p class="muted" id="vacLatest">Latest Biometrics date: Not found</p>
+      <p class="muted" id="nonVacLatest">Latest CA date: Not found</p>
       <p class="muted" id="evidence"></p>
       <button id="checkNow">Check now</button>
       <br />
+      <div id="debugSection" style="display:none;">
+        <details style="margin-top:10px;font-size:11px;">
+          <summary style="cursor:pointer;color:#475569;">Debug info</summary>
+          <button id="copyDebug" style="margin:4px 0;padding:4px 8px;font-size:10px;border:1px solid #94a3b8;border-radius:4px;background:#fff;cursor:pointer;">Copy to clipboard</button>
+          <pre id="debugInfo" style="white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto;background:#e2e8f0;padding:6px;border-radius:4px;font-size:10px;"></pre>
+        </details>
+      </div>
       <a href="options.html" target="_blank" rel="noreferrer">Open settings</a>
     </main>
     <script src="popup.js"></script>

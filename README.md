@@ -11,8 +11,8 @@ and sends a desktop notification when it detects an **open slot in July 2026**.
 - `manifest.json` - Extension configuration (Manifest V3)
 - `background.js` - Periodic fetch + July 2026 detection + notifications
 - `popup.html` / `popup.js` - Quick status + manual check button
-- `options.html` / `options.js` - Configure polling interval
-- `icon-128.png` - Notification icon
+- `options.html` / `options.js` - Configure polling interval + email settings
+- `icon-16.png`, `icon-32.png`, `icon-48.png`, `icon-128.png` - Extension icons
 
 ## Install
 
@@ -29,6 +29,20 @@ and sends a desktop notification when it detects an **open slot in July 2026**.
 3. Open **settings** to change interval (default: every 5 minutes).
 4. Keep Chrome running for background checks.
 
+## Email notifications (optional)
+
+1. Create an EmailJS account and email service/template.
+2. In extension **Settings**, fill:
+   - Destination email
+   - EmailJS service ID
+   - EmailJS template ID
+   - EmailJS public key
+3. Enable **Email alerts** and click **Save settings**.
+4. Use **Send test email** to validate setup.
+
+Template variables sent:
+`to_email`, `subject`, `message`, `target_month`, `target_url`, `evidence`, `vac_latest_date`, `non_vac_latest_date`, `checked_at`.
+
 ## Detection logic
 
 The checker searches page text for `July 2026` / `Jul 2026` contexts and flags open when nearby text indicates:
@@ -38,8 +52,18 @@ The checker searches page text for `July 2026` / `Jul 2026` contexts and flags o
 
 while excluding common closed markers like `no slots`, `unavailable`, `closed`, `0 slots`, etc.
 
+It also extracts the latest likely available dates for:
+- `VAC`
+- `Non-VAC` (consular/interview)
+
 ## Notes
 
 - This relies on site content format. If the website markup/text changes, pattern rules in `background.js` may need adjustment.
 - Notification is sent when state transitions from **not open** to **open**.
 - If the site returns **Vercel Security Checkpoint**, open the target URL once in a normal tab, complete verification, then run **Check now** again.
+- When fetch parsing cannot find dates, the extension falls back to rendered DOM parsing using either:
+  - an already open target tab (`open-tab+color`), or
+  - an auto-opened background tab that it closes automatically (`auto-tab+color`).
+- For calendar views where VAC is shown in green and Non-VAC in red, open-tab parsing also uses those color cues.
+- Fetch-path date parsing is strict by design (requires strong availability cues), so it may return `Not found` instead of guessing.
+- VAC/Non-VAC date extraction is constrained to the target-year window up to the target month (for `July 2026`: Jan 1 to Jul 31, 2026).

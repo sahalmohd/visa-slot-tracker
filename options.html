@@ -33,10 +33,17 @@
         font-weight: 600;
       }
       input {
-        width: 110px;
+        width: 100%;
+        max-width: 420px;
         padding: 6px 8px;
         border: 1px solid #94a3b8;
         border-radius: 8px;
+      }
+      input[type="checkbox"] {
+        width: auto;
+        max-width: none;
+        margin-right: 8px;
+        vertical-align: middle;
       }
       button {
         margin-top: 12px;
@@ -58,6 +65,18 @@
       #status {
         font-size: 13px;
       }
+      .row {
+        margin-top: 12px;
+      }
+      .inline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #testEmail {
+        background: #0f766e;
+        margin-left: 8px;
+      }
     </style>
   </head>
   <body>
@@ -65,12 +84,75 @@
       <h1>Visa Slot Alert Settings</h1>
       <div class="card">
         <p><strong>Target URL:</strong> <span id="targetUrl"></span></p>
-        <p><strong>Target month:</strong> July 2026</p>
-        <label for="intervalMinutes">Check interval (minutes, 1-60)</label>
-        <input id="intervalMinutes" type="number" min="1" max="60" />
-        <button id="save">Save</button>
+        <div class="row">
+          <label for="targetMonth">Target month</label>
+          <div class="inline">
+            <select id="targetMonthSelect" style="padding:6px 8px;border:1px solid #94a3b8;border-radius:8px;">
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+            <input id="targetYear" type="number" min="2025" max="2030" style="width:80px;" />
+          </div>
+        </div>
+        <div class="row">
+          <label for="intervalMinutes">Check interval (minutes, 1-60)</label>
+          <input id="intervalMinutes" type="number" min="1" max="60" />
+        </div>
+
+        <div class="row">
+          <label class="inline" for="emailEnabled">
+            <input id="emailEnabled" type="checkbox" />
+            Enable email alerts
+          </label>
+        </div>
+
+        <div class="row">
+          <label for="emailTo">Email destination</label>
+          <input id="emailTo" type="email" placeholder="you@example.com" />
+        </div>
+
+        <div class="row">
+          <label for="emailjsServiceId">EmailJS service ID</label>
+          <input id="emailjsServiceId" type="text" placeholder="service_xxxxxxx" />
+        </div>
+
+        <div class="row">
+          <label for="emailjsTemplateId">EmailJS template ID</label>
+          <input id="emailjsTemplateId" type="text" placeholder="template_xxxxxxx" />
+        </div>
+
+        <div class="row">
+          <label for="emailjsPublicKey">EmailJS public key</label>
+          <input id="emailjsPublicKey" type="text" placeholder="xxxxxxxxxxxxxxx" />
+        </div>
+
+        <div class="row">
+          <label class="inline" for="debugEnabled">
+            <input id="debugEnabled" type="checkbox" />
+            Show debug info in popup
+          </label>
+        </div>
+
+        <button id="save">Save settings</button>
+        <button id="testEmail" type="button">Send test email</button>
         <p class="small">
-          The extension only notifies when state changes from closed to open.
+          Notifies when new Biometrics or CA dates are detected.
+        </p>
+        <p class="small">
+          Email uses EmailJS. Template variables sent: <code>to_email</code>,
+          <code>subject</code>, <code>message</code>, <code>target_month</code>,
+          <code>target_url</code>, <code>evidence</code>, <code>vac_latest_date</code>,
+          <code>non_vac_latest_date</code>, <code>checked_at</code>.
         </p>
         <p id="status"></p>
       </div>
