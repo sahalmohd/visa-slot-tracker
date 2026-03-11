@@ -38,16 +38,13 @@ function setStatus({
   lastCheckEl.textContent = `Last check: ${formatTime(lastCheckAt)}`;
   sourceEl.textContent = `Source: ${lastCheckSource || "unknown"}`;
   vacLatestEl.textContent = `Latest Biometrics date: ${lastVacLatestDate || "Not found"}`;
-  nonVacLatestEl.textContent = `Latest CA date: ${
-    lastNonVacLatestDate || "Not found"
-  }`;
+  nonVacLatestEl.textContent = `Latest CA date: ${lastNonVacLatestDate || "Not found"}`;
   evidenceEl.textContent = lastEvidence
     ? `Evidence: ${lastEvidence.slice(0, 130)}`
     : "";
 }
 
 async function refresh() {
-  // Load settings
   const settings = await chrome.storage.sync.get({
     targetMonth: "July 2026",
     debugEnabled: false
@@ -57,7 +54,6 @@ async function refresh() {
     targetMonthEl.textContent = `Target: ${targetMonth}`;
   }
 
-  // Toggle debug section visibility
   if (debugSection) {
     debugSection.style.display = settings.debugEnabled ? "block" : "none";
   }
@@ -65,7 +61,6 @@ async function refresh() {
   const data = await chrome.runtime.sendMessage({ type: "getStatus" });
   setStatus(data);
 
-  // Load debug info
   if (settings.debugEnabled) {
     const debugData = await chrome.storage.local.get({ lastDebugInfo: "" });
     const debugEl = document.getElementById("debugInfo");

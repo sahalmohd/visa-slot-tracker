@@ -39,7 +39,6 @@ async function load() {
   });
   intervalInput.value = intervalMinutes;
 
-  // Parse target month "July 2026" → month select + year input
   const parts = targetMonth.match(/^(\w+)\s+(\d{4})$/);
   if (parts) {
     targetMonthSelect.value = parts[1];
