@@ -1,5 +1,6 @@
 import { getTargetMonthLabel } from "./config.js";
 import { sendEmailNotification } from "./email.js";
+import { VISA_BULLETIN_URL } from "./constants.js";
 
 export async function setBadge(isOpen) {
   if (isOpen) {
@@ -69,6 +70,32 @@ export async function notifyDateChange({ prevVac, prevNonVac, newVac, newNonVac 
       evidence: changes.join("\n"),
       vacLatestDate: newVac,
       nonVacLatestDate: newNonVac
+    });
+  } catch (error) {
+    await chrome.storage.local.set({
+      lastEmailError: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+export async function notifyBulletinPublished(upcoming) {
+  const title = upcoming.title || "New Visa Bulletin";
+  const url = upcoming.url || VISA_BULLETIN_URL;
+
+  await chrome.notifications.create({
+    type: "basic",
+    iconUrl: "icons/icon-128.png",
+    title: "New Visa Bulletin Published!",
+    message: `The ${title} visa bulletin is now available.`,
+    priority: 2
+  });
+
+  try {
+    await sendEmailNotification({
+      subject: `Visa Bulletin Alert: ${title} is now available`,
+      message: `The upcoming visa bulletin (${title}) has been published. View it at: ${url}`,
+      evidence: `Bulletin: ${title}\nURL: ${url}`,
+      force: false
     });
   } catch (error) {
     await chrome.storage.local.set({

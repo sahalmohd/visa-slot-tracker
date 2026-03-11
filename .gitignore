@@ -1,2 +1,5 @@
 .DS_Store
 .codex/
+.playwright-mcp/
+visa-*.png
+visa-bulletin-*.png

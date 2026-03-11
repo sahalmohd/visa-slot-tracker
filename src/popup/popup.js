@@ -7,6 +7,8 @@ const nonVacLatestEl = document.getElementById("nonVacLatest");
 const checkNowBtn = document.getElementById("checkNow");
 const targetMonthEl = document.getElementById("targetMonth");
 const debugSection = document.getElementById("debugSection");
+const bulletinCurrentEl = document.getElementById("bulletinCurrent");
+const bulletinUpcomingEl = document.getElementById("bulletinUpcoming");
 
 let targetMonth = "July 2026";
 
@@ -22,7 +24,12 @@ function setStatus({
   lastEvidence,
   lastCheckSource,
   lastVacLatestDate,
-  lastNonVacLatestDate
+  lastNonVacLatestDate,
+  bulletinCurrentTitle,
+  bulletinCurrentUrl,
+  bulletinUpcomingTitle,
+  bulletinUpcomingUrl,
+  bulletinUpcomingIsComingSoon
 }) {
   if (lastCheckError) {
     statusEl.textContent = `Error: ${lastCheckError}`;
@@ -42,6 +49,60 @@ function setStatus({
   evidenceEl.textContent = lastEvidence
     ? `Evidence: ${lastEvidence.slice(0, 130)}`
     : "";
+
+  // Bulletin: Current
+  if (bulletinCurrentTitle) {
+    bulletinCurrentEl.innerHTML = "";
+    bulletinCurrentEl.appendChild(document.createTextNode("Current: "));
+    if (bulletinCurrentUrl) {
+      const link = document.createElement("a");
+      link.href = bulletinCurrentUrl;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.className = "bulletin-link";
+      link.textContent = bulletinCurrentTitle;
+      bulletinCurrentEl.appendChild(link);
+    } else {
+      bulletinCurrentEl.appendChild(document.createTextNode(bulletinCurrentTitle));
+    }
+  } else {
+    bulletinCurrentEl.textContent = "Current: —";
+  }
+
+  // Bulletin: Upcoming
+  if (bulletinUpcomingIsComingSoon) {
+    const label = bulletinUpcomingTitle || "Coming Soon";
+    bulletinUpcomingEl.innerHTML = "";
+    bulletinUpcomingEl.appendChild(document.createTextNode("Upcoming: "));
+    const span = document.createElement("span");
+    span.className = "coming-soon";
+    span.textContent = label;
+    bulletinUpcomingEl.appendChild(span);
+  } else if (bulletinUpcomingTitle) {
+    bulletinUpcomingEl.innerHTML = "";
+    bulletinUpcomingEl.appendChild(document.createTextNode("Upcoming: "));
+    const span = document.createElement("span");
+    span.className = "published";
+    if (bulletinUpcomingUrl) {
+      const link = document.createElement("a");
+      link.href = bulletinUpcomingUrl;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.className = "bulletin-link";
+      link.textContent = bulletinUpcomingTitle;
+      span.appendChild(link);
+    } else {
+      span.textContent = bulletinUpcomingTitle;
+    }
+    bulletinUpcomingEl.appendChild(span);
+    const badge = document.createTextNode(" ✓ Published");
+    const badgeSpan = document.createElement("span");
+    badgeSpan.className = "published";
+    badgeSpan.textContent = " ✓ Published";
+    bulletinUpcomingEl.appendChild(badgeSpan);
+  } else {
+    bulletinUpcomingEl.textContent = "Upcoming: —";
+  }
 }
 
 async function refresh() {
@@ -82,7 +143,10 @@ document.getElementById("copyDebug").addEventListener("click", () => {
 checkNowBtn.addEventListener("click", async () => {
   checkNowBtn.disabled = true;
   try {
-    await chrome.runtime.sendMessage({ type: "checkNow" });
+    await Promise.all([
+      chrome.runtime.sendMessage({ type: "checkNow" }),
+      chrome.runtime.sendMessage({ type: "checkBulletin" })
+    ]);
     await refresh();
   } finally {
     checkNowBtn.disabled = false;

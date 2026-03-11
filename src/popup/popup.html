@@ -61,6 +61,19 @@
       .muted {
         color: #475569;
       }
+      .bulletin-link {
+        color: #1d4ed8;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .coming-soon {
+        color: #b45309;
+        font-weight: 600;
+      }
+      .published {
+        color: #15803d;
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -73,6 +86,12 @@
       <p class="muted" id="vacLatest">Latest Biometrics date: Not found</p>
       <p class="muted" id="nonVacLatest">Latest CA date: Not found</p>
       <p class="muted" id="evidence"></p>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0 8px;" />
+      <h2 style="margin:0 0 6px;font-size:14px;">Visa Bulletin</h2>
+      <p class="muted" id="bulletinCurrent">Current: —</p>
+      <p class="muted" id="bulletinUpcoming">Upcoming: —</p>
+
       <button id="checkNow">Check now</button>
       <br />
       <div id="debugSection" style="display:none;">

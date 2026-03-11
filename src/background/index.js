@@ -3,8 +3,9 @@ import { loadTargetMonth, getTargetMonthLabel } from "./config.js";
 import { sanitize, parseLabelToEpoch } from "./dates.js";
 import { detectOpenJulySlot } from "./detection.js";
 import { sendEmailNotification } from "./email.js";
-import { setBadge, notifyOpen, notifyDateChange } from "./notifications.js";
+import { setBadge, notifyOpen, notifyDateChange, notifyBulletinPublished } from "./notifications.js";
 import { detectFromOpenTab } from "./tab-detection.js";
+import { runBulletinCheck } from "./bulletin.js";
 
 async function getSettings() {
   const { intervalMinutes } = await chrome.storage.sync.get({
@@ -128,6 +129,7 @@ async function runCheck(trigger = "alarm") {
   const message =
     primaryError ||
     "Could not parse slot data. Keep the target page open in a tab and try again.";
+
   await chrome.storage.local.set({
     lastCheckAt: startedAt,
     lastCheckError: message,
@@ -140,23 +142,37 @@ async function runCheck(trigger = "alarm") {
 
 // --- Event listeners ---
 
+async function checkBulletin() {
+  try {
+    const { bulletinData, changed } = await runBulletinCheck();
+    if (changed) {
+      await notifyBulletinPublished(bulletinData.upcoming);
+    }
+  } catch (error) {
+    console.warn("[visa-slot] Bulletin check error (non-fatal):", error);
+    await chrome.storage.local.set({
+      bulletinCheckError: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.sync.get("intervalMinutes");
   if (typeof existing.intervalMinutes !== "number") {
     await chrome.storage.sync.set({ intervalMinutes: DEFAULT_INTERVAL_MINUTES });
   }
   await scheduleAlarm();
-  await runCheck("install");
+  await Promise.all([runCheck("install"), checkBulletin()]);
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await scheduleAlarm();
-  await runCheck("startup");
+  await Promise.all([runCheck("startup"), checkBulletin()]);
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === ALARM_NAME) {
-    await runCheck("alarm");
+    await Promise.all([runCheck("alarm"), checkBulletin()]);
   }
 });
 
@@ -177,9 +193,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         lastVacLatestDate: "Not found",
         lastNonVacLatestDate: "Not found",
         lastCheckSource: "",
-        lastNotificationAt: 0
+        lastNotificationAt: 0,
+        bulletinCurrentTitle: "",
+        bulletinCurrentUrl: "",
+        bulletinUpcomingTitle: "",
+        bulletinUpcomingUrl: "",
+        bulletinUpcomingIsComingSoon: true,
+        bulletinLastCheckAt: 0,
+        bulletinCheckError: ""
       })
       .then(sendResponse);
+    return true;
+  }
+
+  if (message?.type === "checkBulletin") {
+    checkBulletin().then(() => sendResponse({ ok: true }))
+      .catch((error) =>
+        sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) })
+      );
     return true;
   }
 
