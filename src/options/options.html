@@ -83,7 +83,11 @@
     <main>
       <h1>Visa Slot Alert Settings</h1>
       <div class="card">
-        <p><strong>Target URL:</strong> <span id="targetUrl"></span></p>
+        <div class="row">
+          <label for="visaCategory">Visa category</label>
+          <select id="visaCategory" style="padding:6px 8px;border:1px solid #94a3b8;border-radius:8px;max-width:420px;width:100%;"></select>
+        </div>
+        <p class="small"><strong>Target URL:</strong> <span id="targetUrl"></span></p>
         <div class="row">
           <label for="targetMonth">Target month</label>
           <div class="inline">

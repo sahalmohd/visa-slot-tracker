@@ -1,5 +1,5 @@
-import { TARGET_URL, DEFAULT_INTERVAL_MINUTES, DEFAULT_TARGET_MONTH, ALARM_NAME } from "./constants.js";
-import { loadTargetMonth, getTargetMonthLabel } from "./config.js";
+import { DEFAULT_INTERVAL_MINUTES, DEFAULT_TARGET_MONTH, DEFAULT_VISA_CATEGORY, ALARM_NAME } from "./constants.js";
+import { loadSettings, getTargetMonthLabel, getTargetUrl, getVisaCategorySlug } from "./config.js";
 import { sanitize, parseLabelToEpoch } from "./dates.js";
 import { detectOpenJulySlot } from "./detection.js";
 import { sendEmailNotification } from "./email.js";
@@ -27,14 +27,15 @@ async function scheduleAlarm() {
 }
 
 async function runCheck(trigger = "alarm") {
-  await loadTargetMonth();
+  await loadSettings();
+  const targetUrl = getTargetUrl();
   const startedAt = Date.now();
   let result = null;
   let source = "fetch";
   let primaryError = "";
 
   try {
-    const response = await fetch(TARGET_URL, {
+    const response = await fetch(targetUrl, {
       cache: "no-store",
       credentials: "include"
     });
@@ -237,9 +238,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         ? Math.min(intervalInput, 60)
         : DEFAULT_INTERVAL_MINUTES;
     const targetMonth = sanitize(message.targetMonth) || DEFAULT_TARGET_MONTH;
+    const visaCategory = sanitize(message.visaCategory) || DEFAULT_VISA_CATEGORY;
 
     const payload = {
-      intervalMinutes, targetMonth,
+      intervalMinutes, targetMonth, visaCategory,
       emailEnabled: Boolean(message.emailEnabled),
       emailTo: sanitize(message.emailTo),
       emailjsServiceId: sanitize(message.emailjsServiceId),
@@ -250,7 +252,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     chrome.storage.sync
       .set(payload)
-      .then(() => loadTargetMonth())
+      .then(() => loadSettings())
       .then(scheduleAlarm)
       .then(() => sendResponse({ ok: true, intervalMinutes }))
       .catch((error) =>

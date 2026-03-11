@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Visa Slot Alert",
   "version": "1.0.0",
-  "description": "Checks checkvisaslots.com and alerts when July 2026 L-1 Individual Regular slots are open.",
+  "description": "Checks checkvisaslots.com for US visa slot availability and alerts when slots open for your target month.",
   "permissions": ["alarms", "storage", "notifications", "tabs", "scripting"],
   "host_permissions": ["https://checkvisaslots.com/*", "https://api.emailjs.com/*", "https://travel.state.gov/*"],
   "icons": {

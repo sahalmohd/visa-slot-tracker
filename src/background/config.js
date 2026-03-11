@@ -1,4 +1,7 @@
-import { DEFAULT_TARGET_MONTH, MONTH_INDEX } from "./constants.js";
+import {
+  DEFAULT_TARGET_MONTH, DEFAULT_VISA_CATEGORY,
+  CHECKVISASLOTS_BASE, MONTH_INDEX, VISA_CATEGORIES
+} from "./constants.js";
 
 export function parseTargetMonthLabel(label) {
   const match = String(label || "").match(/^\s*([a-zA-Z]+)\s+(\d{4})\s*$/);
@@ -12,6 +15,8 @@ export function parseTargetMonthLabel(label) {
   }
   return { month, year };
 }
+
+// --- Target month state ---
 
 let TARGET_MONTH_LABEL = DEFAULT_TARGET_MONTH;
 let TARGET_MONTH_INFO = parseTargetMonthLabel(TARGET_MONTH_LABEL);
@@ -38,11 +43,45 @@ export function getTargetRangeEndEpoch() {
   return TARGET_RANGE_END_EPOCH;
 }
 
-export async function loadTargetMonth() {
-  const { targetMonth } = await chrome.storage.sync.get({
-    targetMonth: DEFAULT_TARGET_MONTH
+// --- Visa category state ---
+
+let VISA_CATEGORY_SLUG = DEFAULT_VISA_CATEGORY;
+
+function buildTargetUrl(slug) {
+  return `${CHECKVISASLOTS_BASE}${slug}/`;
+}
+
+function buildTargetUrlPatterns(slug) {
+  const base = `${CHECKVISASLOTS_BASE}${slug}`;
+  return [`${base}/*`, base];
+}
+
+export function getTargetUrl() {
+  return buildTargetUrl(VISA_CATEGORY_SLUG);
+}
+
+export function getTargetUrlPatterns() {
+  return buildTargetUrlPatterns(VISA_CATEGORY_SLUG);
+}
+
+export function getVisaCategorySlug() {
+  return VISA_CATEGORY_SLUG;
+}
+
+export function getVisaCategoryLabel() {
+  const entry = VISA_CATEGORIES.find(c => c.slug === VISA_CATEGORY_SLUG);
+  return entry?.label || VISA_CATEGORY_SLUG;
+}
+
+// --- Load all settings from storage ---
+
+export async function loadSettings() {
+  const data = await chrome.storage.sync.get({
+    targetMonth: DEFAULT_TARGET_MONTH,
+    visaCategory: DEFAULT_VISA_CATEGORY
   });
-  TARGET_MONTH_LABEL = targetMonth || DEFAULT_TARGET_MONTH;
+
+  TARGET_MONTH_LABEL = data.targetMonth || DEFAULT_TARGET_MONTH;
   TARGET_MONTH_INFO = parseTargetMonthLabel(TARGET_MONTH_LABEL);
   TARGET_RANGE_START_EPOCH = Date.UTC(TARGET_MONTH_INFO.year, 0, 1);
   TARGET_RANGE_END_EPOCH = Date.UTC(
@@ -50,7 +89,12 @@ export async function loadTargetMonth() {
     TARGET_MONTH_INFO.month + 1,
     0, 23, 59, 59, 999
   );
+
+  VISA_CATEGORY_SLUG = data.visaCategory || DEFAULT_VISA_CATEGORY;
 }
+
+// Backward-compatible alias
+export const loadTargetMonth = loadSettings;
 
 export function isEpochInTargetRange(epoch) {
   return (

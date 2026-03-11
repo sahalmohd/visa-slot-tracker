@@ -7,8 +7,29 @@ const nonVacLatestEl = document.getElementById("nonVacLatest");
 const checkNowBtn = document.getElementById("checkNow");
 const targetMonthEl = document.getElementById("targetMonth");
 const debugSection = document.getElementById("debugSection");
+const visaCategoryEl = document.getElementById("visaCategory");
 const bulletinCurrentEl = document.getElementById("bulletinCurrent");
 const bulletinUpcomingEl = document.getElementById("bulletinUpcoming");
+
+const VISA_CATEGORIES = {
+  "b1-b2-regular": "B1/B2 (Regular)", "b1-regular": "B1 (Regular)",
+  "b2-regular": "B2 (Regular)", "b1-b2-dropbox": "B1/B2 (Dropbox)",
+  "b1-dropbox": "B1 (Dropbox)", "b2-dropbox": "B2 (Dropbox)",
+  "c-1-regular": "C-1 (Regular)", "c1-d-regular": "C1/D (Regular)",
+  "cr1-regular": "CR1 (Regular)", "f-1-regular": "F-1 (Regular)",
+  "f-2-regular": "F-2 (Regular)", "f31-regular": "F31 (Regular)",
+  "f41-regular": "F41 (Regular)", "h-1b-regular": "H-1B (Regular)",
+  "h-1b-emergency": "H-1B (Emergency)", "h-4-regular": "H-4 (Regular)",
+  "ir1-regular": "IR1 (Regular)", "ir5-regular": "IR5 (Regular)",
+  "j-1-regular": "J-1 (Regular)", "j-2-regular": "J-2 (Regular)",
+  "k1-regular": "K1 (Regular)", "l-1-blanket-regular": "L-1 Blanket (Regular)",
+  "l-1-individual-regular": "L-1 Individual (Regular)",
+  "l-2-blanket-regular": "L-2 Blanket (Regular)",
+  "l-2-individual-regular": "L-2 Individual (Regular)",
+  "m-1-regular": "M-1 (Regular)", "o-1-regular": "O-1 (Regular)",
+  "p-1-regular": "P-1 (Regular)", "r-1-regular": "R-1 (Regular)",
+  "r-2-regular": "R-2 (Regular)"
+};
 
 let targetMonth = "July 2026";
 
@@ -108,11 +129,16 @@ function setStatus({
 async function refresh() {
   const settings = await chrome.storage.sync.get({
     targetMonth: "July 2026",
+    visaCategory: "l-1-individual-regular",
     debugEnabled: false
   });
   targetMonth = settings.targetMonth;
   if (targetMonthEl) {
     targetMonthEl.textContent = `Target: ${targetMonth}`;
+  }
+  if (visaCategoryEl) {
+    const label = VISA_CATEGORIES[settings.visaCategory] || settings.visaCategory;
+    visaCategoryEl.textContent = `Category: ${label}`;
   }
 
   if (debugSection) {

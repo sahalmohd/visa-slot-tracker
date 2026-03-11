@@ -1,5 +1,4 @@
-import { TARGET_URL, TARGET_URL_PATTERNS } from "./constants.js";
-import { getTargetMonthLabel } from "./config.js";
+import { getTargetMonthLabel, getTargetUrl, getTargetUrlPatterns } from "./config.js";
 import {
   detectOpenJulySlot, cleanHtmlToText, extractDatesFromRecentSlots
 } from "./detection.js";
@@ -43,12 +42,12 @@ function delay(ms) {
 }
 
 export async function detectFromOpenTab({ allowCreate = false } = {}) {
-  const tabs = await chrome.tabs.query({ url: TARGET_URL_PATTERNS });
+  const tabs = await chrome.tabs.query({ url: getTargetUrlPatterns() });
   let tab = tabs.find((item) => Number.isInteger(item.id));
   let created = false;
 
   if (!tab?.id && allowCreate) {
-    tab = await chrome.tabs.create({ url: TARGET_URL, active: false });
+    tab = await chrome.tabs.create({ url: getTargetUrl(), active: false });
     created = true;
   }
 

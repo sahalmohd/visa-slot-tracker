@@ -1,5 +1,5 @@
-import { TARGET_URL, EMAILJS_ENDPOINT } from "./constants.js";
-import { getTargetMonthLabel } from "./config.js";
+import { EMAILJS_ENDPOINT } from "./constants.js";
+import { getTargetMonthLabel, getTargetUrl } from "./config.js";
 import { sanitize, isValidEmail } from "./dates.js";
 
 export async function getEmailSettings() {
@@ -48,7 +48,7 @@ export async function sendEmailNotification({
       to_email: settings.emailTo,
       subject, message,
       target_month: getTargetMonthLabel(),
-      target_url: TARGET_URL,
+      target_url: getTargetUrl(),
       evidence,
       vac_latest_date: vacLatestDate,
       non_vac_latest_date: nonVacLatestDate,
