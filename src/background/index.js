@@ -1,5 +1,5 @@
 import { DEFAULT_INTERVAL_MINUTES, DEFAULT_TARGET_MONTH, DEFAULT_VISA_CATEGORY, ALARM_NAME } from "./constants.js";
-import { loadSettings, getTargetMonthLabel, getTargetUrl, getVisaCategorySlug } from "./config.js";
+import { loadSettings, getTargetMonthLabel, getTargetMonthInfo, getTargetUrl, getVisaCategorySlug } from "./config.js";
 import { sanitize, parseLabelToEpoch } from "./dates.js";
 import { detectOpenJulySlot } from "./detection.js";
 import { sendEmailNotification } from "./email.js";
@@ -85,6 +85,24 @@ async function runCheck(trigger = "alarm") {
   }
 
   if (result) {
+    // If dates were found in the target month, treat it as open
+    const targetInfo = getTargetMonthInfo();
+    const targetLabel = getTargetMonthLabel();
+    const targetMonthStart = Date.UTC(targetInfo.year, targetInfo.month, 1);
+    const targetMonthEnd = Date.UTC(targetInfo.year, targetInfo.month + 1, 0, 23, 59, 59, 999);
+    const vacEpoch = parseLabelToEpoch(result.latestVacDate);
+    const nonVacEpoch = parseLabelToEpoch(result.latestNonVacDate);
+    const vacInTargetMonth = vacEpoch >= targetMonthStart && vacEpoch <= targetMonthEnd;
+    const nonVacInTargetMonth = nonVacEpoch >= targetMonthStart && nonVacEpoch <= targetMonthEnd;
+
+    if ((vacInTargetMonth || nonVacInTargetMonth) && !result.isOpen) {
+      result.isOpen = true;
+      const parts = [];
+      if (vacInTargetMonth) parts.push(`Biometrics: ${result.latestVacDate}`);
+      if (nonVacInTargetMonth) parts.push(`CA: ${result.latestNonVacDate}`);
+      result.evidence = `${targetLabel} slots detected — ${parts.join(", ")}`;
+    }
+
     const previous = await chrome.storage.local.get({
       lastOpen: false,
       lastVacLatestDate: "Not found",
@@ -179,7 +197,23 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "checkNow") {
-    runCheck("manual").then(sendResponse);
+    (async () => {
+      const checkResult = await runCheck("manual");
+      if (checkResult.ok && checkResult.isOpen) {
+        try {
+          await sendEmailNotification({
+            subject: `Visa Slot Alert: ${getTargetMonthLabel()} slots detected`,
+            message: `Manual check found ${getTargetMonthLabel()} slots. Biometrics: ${checkResult.latestVacDate}, CA: ${checkResult.latestNonVacDate}.`,
+            evidence: checkResult.evidence || "Manual check",
+            vacLatestDate: checkResult.latestVacDate,
+            nonVacLatestDate: checkResult.latestNonVacDate
+          });
+        } catch (e) {
+          console.warn("[visa-slot] Manual check email error:", e);
+        }
+      }
+      sendResponse(checkResult);
+    })();
     return true;
   }
 
