@@ -1,4 +1,4 @@
-import { MONTH_NAMES, MONTH_INDEX, TARGET_URL, TARGET_URL_PATTERNS } from "./constants.js";
+import { TARGET_URL, TARGET_URL_PATTERNS } from "./constants.js";
 import { getTargetMonthLabel } from "./config.js";
 import {
   detectOpenJulySlot, cleanHtmlToText, extractDatesFromRecentSlots
@@ -56,7 +56,7 @@ export async function detectFromOpenTab({ allowCreate = false } = {}) {
 
   if (created) {
     await waitForTabComplete(tab.id);
-    await delay(2500);
+    await delay(3500);
   }
 
   try {
@@ -75,8 +75,8 @@ export async function detectFromOpenTab({ allowCreate = false } = {}) {
     const cleanedText = cleanHtmlToText(html);
     const recentSlotsResult = extractDatesFromRecentSlots(cleanedText);
 
-    const allVacSources = [payload.vacLatestDateByColor, payload.gridVac, result.latestVacDate];
-    const allNonVacSources = [payload.nonVacLatestDateByColor, payload.gridNonVac, result.latestNonVacDate];
+    const allVacSources = [payload.latestVacDate, result.latestVacDate];
+    const allNonVacSources = [payload.latestNonVacDate, result.latestNonVacDate];
 
     for (const src of allVacSources) {
       if (src && src !== "Not found" && parseLabelToEpoch(src) > parseLabelToEpoch(result.latestVacDate)) {
@@ -92,12 +92,11 @@ export async function detectFromOpenTab({ allowCreate = false } = {}) {
     const debugInfo = {
       recentSlotsVac: recentSlotsResult?.latestVacDate || "Not found",
       recentSlotsNonVac: recentSlotsResult?.latestNonVacDate || "Not found",
-      colorVac: payload.vacLatestDateByColor || "Not found",
-      colorNonVac: payload.nonVacLatestDateByColor || "Not found",
-      gridVac: payload.gridVac || "Not found",
-      gridNonVac: payload.gridNonVac || "Not found",
-      debugGridInfo: payload.debugGridInfo || [],
+      domVac: payload.latestVacDate || "Not found",
+      domNonVac: payload.latestNonVacDate || "Not found",
+      allDatesWithActivity: payload.latestDateWithActivity || "Not found",
       recentSlotsEntries: recentSlotsResult?.debugEntries || [],
+      debugFilterInfo: payload.debugFilterInfo || {},
       finalVac: result.latestVacDate,
       finalNonVac: result.latestNonVacDate
     };
@@ -113,12 +112,16 @@ export async function detectFromOpenTab({ allowCreate = false } = {}) {
 }
 
 /**
- * Returns the function to inject into the target tab.
- * Kept as a separate builder so the injected code is self-contained
- * (chrome.scripting.executeScript requires a serializable function).
+ * Injected into the target tab. Self-contained — no imports.
+ *
+ * Strategy:
+ * 1. Read the calendar grid for the latest date with ANY slot activity.
+ * 2. Use location filter buttons to isolate VAC-only and Non-VAC-only,
+ *    then read the latest active date for each.
+ * 3. Restore all filters to their original state.
  */
 function buildInjectedFunction() {
-  return (targetMonthLabel) => {
+  return async (targetMonthLabel) => {
     const MONTH_NAMES_INJECT = [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
@@ -143,266 +146,124 @@ function buildInjectedFunction() {
       targetMonthInfo.year, targetMonthInfo.month + 1, 0, 23, 59, 59, 999
     );
 
-    function normalizeColor(value) {
-      if (!value) return null;
-      const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-      if (!match) return null;
-      return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
-    }
-
-    function roleFromColor(el) {
-      let node = el;
-      for (let depth = 0; node && depth < 4; depth += 1) {
-        const style = getComputedStyle(node);
-        for (const value of [style.color, style.backgroundColor, style.borderColor]) {
-          const color = normalizeColor(value);
-          if (!color) continue;
-          if (color.g >= 90 && color.g - Math.max(color.r, color.b) >= 28) return "vac";
-          if (color.r >= 110 && color.r - Math.max(color.g, color.b) >= 30) return "nonVac";
-        }
-        node = node.parentElement;
-      }
-      return null;
-    }
-
-    function roleFromText(el) {
-      let node = el;
-      for (let depth = 0; node && depth < 5; depth += 1) {
-        const hay = [
-          node.className || "", node.id || "",
-          node.getAttribute?.("aria-label") || "",
-          node.getAttribute?.("title") || "",
-          node.textContent || ""
-        ].join(" ").toLowerCase();
-        if (/\bnon[\s-]*vac\b|\bconsular\b|\binterview\b/.test(hay)) return "nonVac";
-        if (/\bvac\b|\bbiometric\b|\bofc\b/.test(hay)) return "vac";
-        node = node.parentElement;
-      }
-      return null;
-    }
-
-    function isVisibleElement(el) {
-      if (!el || !(el instanceof Element)) return false;
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 1 || rect.height < 1) return false;
-      let node = el;
-      for (let depth = 0; node && depth < 6; depth += 1) {
-        const style = getComputedStyle(node);
-        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") < 0.1) return false;
-        node = node.parentElement;
-      }
-      return true;
-    }
-
-    function isLikelyCalendarRoot(el) {
-      if (!el || !(el instanceof Element)) return false;
-      const hay = [el.id || "", el.className || "", el.getAttribute?.("aria-label") || "", el.textContent || ""].join(" ").toLowerCase();
-      return /\b(vac|non[\s-]*vac|biometric|ofc|consular|interview|slot|calendar)\b/.test(hay) &&
-        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|20\d{2})\b/.test(hay);
-    }
-
     function buildLabel(year, month, day) {
       return `${MONTH_NAMES_INJECT[month]} ${day}, ${year}`;
     }
 
-    function parseDateFromString(value) {
+    function parseDateFromAriaLabel(value) {
       const text = String(value || "");
       if (!text) return null;
-      let match;
       const monthPattern = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
-
-      match = text.match(new RegExp(`\\b${monthPattern}\\s+([0-3]?\\d)(?:st|nd|rd|th)?[,]?\\s*(20\\d{2})\\b`, "i"));
-      if (match) {
-        const month = MONTH_INDEX_INJECT[match[1].toLowerCase().slice(0, 3)];
-        const day = Number(match[2]);
-        const year = Number(match[3]);
-        if (Number.isInteger(month) && day >= 1 && day <= 31) {
-          const date = new Date(Date.UTC(year, month, day));
-          if (date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day) {
-            return { label: buildLabel(year, month, day), epoch: date.getTime() };
-          }
-        }
-      }
-
-      match = text.match(new RegExp(`\\b([0-3]?\\d)(?:st|nd|rd|th)?\\s+${monthPattern}\\s*(20\\d{2})\\b`, "i"));
-      if (match) {
-        const month = MONTH_INDEX_INJECT[match[2].toLowerCase().slice(0, 3)];
-        const day = Number(match[1]);
-        const year = Number(match[3]);
-        if (Number.isInteger(month) && day >= 1 && day <= 31) {
-          const date = new Date(Date.UTC(year, month, day));
-          if (date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day) {
-            return { label: buildLabel(year, month, day), epoch: date.getTime() };
-          }
-        }
-      }
-
-      match = text.match(/\b(20\d{2})[./-]([01]?\d)[./-]([0-3]?\d)\b/);
-      if (match) {
-        const year = Number(match[1]);
-        const month = Number(match[2]) - 1;
-        const day = Number(match[3]);
-        if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-          const date = new Date(Date.UTC(year, month, day));
-          if (date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day) {
-            return { label: buildLabel(year, month, day), epoch: date.getTime() };
-          }
-        }
-      }
-
-      match = text.match(/\b([01]?\d)[./-]([0-3]?\d)[./-](20\d{2})\b/);
-      if (match) {
-        const month = Number(match[1]) - 1;
-        const day = Number(match[2]);
-        const year = Number(match[3]);
-        if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-          const date = new Date(Date.UTC(year, month, day));
-          if (date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day) {
-            return { label: buildLabel(year, month, day), epoch: date.getTime() };
-          }
-        }
-      }
-
-      return null;
+      const match = text.match(new RegExp(`\\b${monthPattern}\\s+([0-3]?\\d)(?:st|nd|rd|th)?[,]?\\s*(20\\d{2})\\b`, "i"));
+      if (!match) return null;
+      const month = MONTH_INDEX_INJECT[match[1].toLowerCase().slice(0, 3)];
+      const day = Number(match[2]);
+      const year = Number(match[3]);
+      if (!Number.isInteger(month) || day < 1 || day > 31) return null;
+      const date = new Date(Date.UTC(year, month, day));
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) return null;
+      return { label: buildLabel(year, month, day), epoch: date.getTime() };
     }
 
-    function extractColorDates() {
-      const rootSelectors = [
-        "main", "section", "article",
-        "[class*='calendar']", "[id*='calendar']",
-        "[class*='slot']", "[id*='slot']",
-        "[class*='vac']", "[class*='interview']", "[class*='consular']"
-      ].join(",");
-      const candidateRoots = Array.from(document.querySelectorAll(rootSelectors))
-        .filter(isLikelyCalendarRoot).slice(0, 20);
-      const roots = candidateRoots.length ? candidateRoots : [document.body];
-
-      let bestVac = null;
-      let bestNonVac = null;
-      const seen = new Set();
-      const debugCandidates = [];
-
-      for (const root of roots) {
-        const nodes = Array.from(root.querySelectorAll([
-          "[data-date]", "[datetime]", "[aria-label*='202']", "[title*='202']",
-          "[class*='vac']", "[class*='ofc']", "[class*='interview']",
-          "[class*='consular']", "[class*='day']", "[class*='slot']"
-        ].join(","))).slice(0, 2000);
-
-        for (const el of nodes) {
-          const uniq = `${el.tagName}|${el.className}|${el.id}|${el.getAttribute?.("data-date") || ""}|${el.getAttribute?.("datetime") || ""}|${el.getAttribute?.("aria-label") || ""}`;
-          if (seen.has(uniq)) continue;
-          seen.add(uniq);
-          if (!isVisibleElement(el)) continue;
-
-          const roleByText = roleFromText(el);
-          const roleByColor = roleFromColor(el);
-          if (roleByText && roleByColor && roleByText !== roleByColor) continue;
-          const role = roleByText || roleByColor;
-          if (!role) continue;
-
-          const shortText = (el.textContent || "").trim().replace(/\s+/g, " ");
-          const sources = [
-            { type: "attr", value: el.getAttribute?.("data-date") || "" },
-            { type: "attr", value: el.getAttribute?.("datetime") || "" },
-            { type: "attr", value: el.getAttribute?.("aria-label") || "" },
-            { type: "attr", value: el.getAttribute?.("title") || "" },
-            { type: "text", value: shortText.length <= 42 ? shortText : "" }
-          ];
-
-          let parsed = null;
-          let sourceType = "none";
-          let sourceValue = "";
-          for (const source of sources) {
-            parsed = parseDateFromString(source.value);
-            if (parsed) { sourceType = source.type; sourceValue = source.value; break; }
-          }
-          if (!parsed) continue;
-          if (!Number.isFinite(parsed.epoch) || parsed.epoch < targetRangeStartEpoch || parsed.epoch > targetRangeEndEpoch) continue;
-
-          let confidence = 0;
-          if (roleByText) confidence += 2;
-          if (roleByColor) confidence += 1;
-          if (sourceType === "attr") confidence += 1;
-
-          debugCandidates.push({
-            tag: el.tagName, className: (el.className || "").toString().slice(0, 100),
-            id: el.id || "", text: shortText.slice(0, 60),
-            role, roleByText, roleByColor, sourceType,
-            sourceValue: sourceValue.slice(0, 60), dateLabel: parsed.label,
-            confidence, dataDate: el.getAttribute?.("data-date") || "",
-            parentClass: (el.parentElement?.className || "").toString().slice(0, 100)
-          });
-
-          if (confidence < 2) continue;
-          const trimmedText = (el.textContent || "").trim();
-          if (/^\d{1,2}(\s*(ch|na|-))?$/i.test(trimmedText)) continue;
-          const parentText = (el.parentElement?.textContent || "").slice(0, 200).toLowerCase();
-          if (/\b(last (?:checked|updated|modified|refreshed)|as of|updated on|checked on)\b/.test(parentText)) continue;
-
-          const candidate = { ...parsed, confidence };
-          if (role === "vac") {
-            if (!bestVac || candidate.confidence > bestVac.confidence ||
-              (candidate.confidence === bestVac.confidence && candidate.epoch > bestVac.epoch)) {
-              bestVac = candidate;
-            }
-          } else if (role === "nonVac") {
-            if (!bestNonVac || candidate.confidence > bestNonVac.confidence ||
-              (candidate.confidence === bestNonVac.confidence && candidate.epoch > bestNonVac.epoch)) {
-              bestNonVac = candidate;
-            }
-          }
-        }
-      }
-
-      return {
-        vacLatestDateByColor: bestVac?.label || "Not found",
-        nonVacLatestDateByColor: bestNonVac?.label || "Not found",
-        debugColorCandidates: debugCandidates.slice(0, 30)
-      };
-    }
-
-    function extractCalendarGridDates() {
-      let bestVac = null;
-      let bestNonVac = null;
-      const debugGridInfo = [];
+    function getLatestActiveDateFromGrid() {
       const tiles = document.querySelectorAll(".react-calendar__month-view__days__day");
+      let latest = null;
 
       for (const tile of tiles) {
         const cls = (tile.className || "").toString();
-        const isYellow = cls.includes("!bg-yellow");
-        const isRed = cls.includes("!bg-red");
-        if (!isYellow && !isRed) continue;
+        const hasActivity = cls.includes("!bg-yellow") || cls.includes("!bg-red") || cls.includes("!bg-green");
+        if (!hasActivity) continue;
 
         const abbr = tile.querySelector("abbr");
         const ariaLabel = abbr?.getAttribute("aria-label") || "";
-        const parsed = parseDateFromString(ariaLabel);
+        const parsed = parseDateFromAriaLabel(ariaLabel);
         if (!parsed) continue;
         if (parsed.epoch < targetRangeStartEpoch || parsed.epoch > targetRangeEndEpoch) continue;
 
-        const role = isYellow ? "vac" : "nonVac";
-        if (role === "vac" && (!bestVac || parsed.epoch > bestVac.epoch)) {
-          bestVac = { label: parsed.label, epoch: parsed.epoch };
-        }
-        if (role === "nonVac" && (!bestNonVac || parsed.epoch > bestNonVac.epoch)) {
-          bestNonVac = { label: parsed.label, epoch: parsed.epoch };
-        }
-        if (parsed.epoch >= Date.UTC(2026, 4, 1)) {
-          debugGridInfo.push({ date: parsed.label, role });
+        if (!latest || parsed.epoch > latest.epoch) {
+          latest = parsed;
         }
       }
 
-      return {
-        gridVac: bestVac?.label || "Not found",
-        gridNonVac: bestNonVac?.label || "Not found",
-        debugGridInfo: debugGridInfo.slice(0, 30)
-      };
+      return latest?.label || "Not found";
+    }
+
+    function getLocationButtons() {
+      const buttons = document.querySelectorAll('button[id^="location-"]');
+      const vac = [];
+      const nonVac = [];
+      for (const btn of buttons) {
+        const id = btn.id.replace("location-", "");
+        if (/\bvac\b/i.test(id)) {
+          vac.push(btn);
+        } else {
+          nonVac.push(btn);
+        }
+      }
+      return { vac, nonVac, all: Array.from(buttons) };
+    }
+
+    function getButtonStates(buttons) {
+      return buttons.map(btn => ({
+        id: btn.id,
+        checked: btn.getAttribute("aria-checked") === "true"
+      }));
+    }
+
+    function setButtonState(btn, shouldBeChecked) {
+      const isChecked = btn.getAttribute("aria-checked") === "true";
+      if (isChecked !== shouldBeChecked) {
+        btn.click();
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    const { vac: vacButtons, nonVac: nonVacButtons, all: allButtons } = getLocationButtons();
+    const debugFilterInfo = {
+      vacLocations: vacButtons.map(b => b.id),
+      nonVacLocations: nonVacButtons.map(b => b.id),
+      totalButtons: allButtons.length
+    };
+
+    const originalStates = getButtonStates(allButtons);
+    const latestDateWithActivity = getLatestActiveDateFromGrid();
+
+    let latestVacDate = "Not found";
+    let latestNonVacDate = "Not found";
+
+    if (allButtons.length > 0) {
+      try {
+        // --- Read VAC-only dates ---
+        for (const btn of nonVacButtons) setButtonState(btn, false);
+        for (const btn of vacButtons) setButtonState(btn, true);
+        await sleep(600);
+        latestVacDate = getLatestActiveDateFromGrid();
+
+        // --- Read Non-VAC-only dates ---
+        for (const btn of vacButtons) setButtonState(btn, false);
+        for (const btn of nonVacButtons) setButtonState(btn, true);
+        await sleep(600);
+        latestNonVacDate = getLatestActiveDateFromGrid();
+      } finally {
+        // --- Restore original state ---
+        for (const state of originalStates) {
+          const btn = document.getElementById(state.id);
+          if (btn) setButtonState(btn, state.checked);
+        }
+      }
     }
 
     const html = document.documentElement?.outerHTML || "";
     const text = document.body?.innerText || "";
-    const byColor = extractColorDates();
-    const byGrid = extractCalendarGridDates();
-    return { html, text, ...byColor, ...byGrid };
+    return {
+      html, text,
+      latestVacDate,
+      latestNonVacDate,
+      latestDateWithActivity,
+      debugFilterInfo
+    };
   };
 }

@@ -153,7 +153,8 @@ export function extractLatestDateByContext(text, includeRegex, excludeRegex = nu
  * Returns { latestVacDate, latestNonVacDate, debugEntries } or null if section not found.
  */
 export function extractDatesFromRecentSlots(text) {
-  const marker = text.indexOf("recent slots");
+  let marker = text.indexOf("recent slots");
+  if (marker === -1) marker = text.indexOf("recent activity");
   if (marker === -1) return null;
 
   const section = text.slice(marker);

@@ -89,21 +89,7 @@ async function runCheck(trigger = "alarm") {
       lastNonVacLatestDate: "Not found"
     });
 
-    if (result.isOpen && !previous.lastOpen) {
-      await notifyOpen(result.evidence, result.latestVacDate, result.latestNonVacDate);
-    }
-
-    const vacChanged = result.latestVacDate !== previous.lastVacLatestDate;
-    const nonVacChanged = result.latestNonVacDate !== previous.lastNonVacLatestDate;
-    if (vacChanged || nonVacChanged) {
-      await notifyDateChange({
-        prevVac: previous.lastVacLatestDate,
-        prevNonVac: previous.lastNonVacLatestDate,
-        newVac: result.latestVacDate,
-        newNonVac: result.latestNonVacDate
-      });
-    }
-
+    // Write results to storage FIRST so the popup always sees fresh data
     await chrome.storage.local.set({
       lastCheckAt: startedAt,
       lastOpen: result.isOpen,
@@ -115,6 +101,27 @@ async function runCheck(trigger = "alarm") {
       lastCheckSource: source
     });
     await setBadge(result.isOpen);
+
+    // Notifications are best-effort — don't let them block the result
+    try {
+      if (result.isOpen && !previous.lastOpen) {
+        await notifyOpen(result.evidence, result.latestVacDate, result.latestNonVacDate);
+      }
+
+      const vacChanged = result.latestVacDate !== previous.lastVacLatestDate;
+      const nonVacChanged = result.latestNonVacDate !== previous.lastNonVacLatestDate;
+      if (vacChanged || nonVacChanged) {
+        await notifyDateChange({
+          prevVac: previous.lastVacLatestDate,
+          prevNonVac: previous.lastNonVacLatestDate,
+          newVac: result.latestVacDate,
+          newNonVac: result.latestNonVacDate
+        });
+      }
+    } catch (notifyError) {
+      console.warn("[visa-slot] Notification error (non-fatal):", notifyError);
+    }
+
     return { ok: true, source, ...result };
   }
 
