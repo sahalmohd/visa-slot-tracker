@@ -31,21 +31,21 @@ export function parseBulletinPage(html) {
   // --- Current Visa Bulletin ---
   const currentIdx = textLower.indexOf("current visa bulletin");
   if (currentIdx !== -1) {
-    const searchWindow = html.slice(currentIdx, currentIdx + 800);
+    const searchWindow = html.slice(currentIdx, currentIdx + 1200);
     const linkMatch = searchWindow.match(
-      /<a\s[^>]*href="([^"]*visa-bulletin-for-[^"]+)"[^>]*>([\s\S]*?)<\/a>/i
+      /<a\s[^>]*href=["']([^"']*visa-bulletin-for-[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i
     );
     if (linkMatch) {
       const href = linkMatch[1];
       const linkText = linkMatch[2].replace(/<[^>]+>/g, "").trim();
-      result.current.title = linkText || extractTitleFromUrl(href);
+      result.current.title = normalizeBulletinTitle(linkText || extractTitleFromUrl(href));
       result.current.url = href.startsWith("http") ? href : VISA_BULLETIN_BASE + href;
     } else {
       const textMatch = searchWindow.match(
-        /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i
+        /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s*\d{4}/i
       );
       if (textMatch) {
-        result.current.title = textMatch[0];
+        result.current.title = normalizeBulletinTitle(textMatch[0]);
       }
     }
   }
@@ -53,27 +53,27 @@ export function parseBulletinPage(html) {
   // --- Upcoming Visa Bulletin ---
   const upcomingIdx = textLower.indexOf("upcoming visa bulletin");
   if (upcomingIdx !== -1) {
-    const searchWindow = html.slice(upcomingIdx, upcomingIdx + 800);
-    const comingSoon = /coming\s+soon/i.test(searchWindow.slice(0, 400));
+    const searchWindow = html.slice(upcomingIdx, upcomingIdx + 1200);
+    const comingSoon = /coming\s+soon/i.test(searchWindow.slice(0, 500));
 
     const linkMatch = searchWindow.match(
-      /<a\s[^>]*href="([^"]*visa-bulletin-for-[^"]+)"[^>]*>([\s\S]*?)<\/a>/i
+      /<a\s[^>]*href=["']([^"']*visa-bulletin-for-[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i
     );
 
     if (linkMatch && !comingSoon) {
       const href = linkMatch[1];
       const linkText = linkMatch[2].replace(/<[^>]+>/g, "").trim();
-      result.upcoming.title = linkText || extractTitleFromUrl(href);
+      result.upcoming.title = normalizeBulletinTitle(linkText || extractTitleFromUrl(href));
       result.upcoming.url = href.startsWith("http") ? href : VISA_BULLETIN_BASE + href;
       result.upcoming.isComingSoon = false;
     } else {
       result.upcoming.isComingSoon = true;
       result.upcoming.title = "Coming Soon";
       const textMatch = searchWindow.match(
-        /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i
+        /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s*\d{4}/i
       );
       if (textMatch) {
-        result.upcoming.title = `${textMatch[0]} (Coming Soon)`;
+        result.upcoming.title = `${normalizeBulletinTitle(textMatch[0])} (Coming Soon)`;
       }
     }
   }
@@ -86,6 +86,14 @@ function extractTitleFromUrl(href) {
   if (!match) return "";
   const month = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
   return `${month} ${match[2]}`;
+}
+
+/** Normalize "April2026" / "March 2026" -> "April 2026" for display */
+function normalizeBulletinTitle(text) {
+  if (!text || typeof text !== "string") return text || "";
+  const trimmed = text.trim();
+  const withSpace = trimmed.replace(/^([a-z]+)(\d{4})$/i, "$1 $2");
+  return withSpace || trimmed;
 }
 
 /**
