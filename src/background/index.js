@@ -128,15 +128,20 @@ async function runCheck(trigger = "alarm") {
         await notifyOpen(result.evidence, result.latestVacDate, result.latestNonVacDate);
       }
 
-      const vacChanged = result.latestVacDate !== previous.lastVacLatestDate;
-      const nonVacChanged = result.latestNonVacDate !== previous.lastNonVacLatestDate;
-      if (vacChanged || nonVacChanged) {
-        await notifyDateChange({
-          prevVac: previous.lastVacLatestDate,
-          prevNonVac: previous.lastNonVacLatestDate,
-          newVac: result.latestVacDate,
-          newNonVac: result.latestNonVacDate
-        });
+      const { notifyDateChange: notifyOnChange = true } = await chrome.storage.sync.get({
+        notifyDateChange: true
+      });
+      if (notifyOnChange) {
+        const vacChanged = result.latestVacDate !== previous.lastVacLatestDate;
+        const nonVacChanged = result.latestNonVacDate !== previous.lastNonVacLatestDate;
+        if (vacChanged || nonVacChanged) {
+          await notifyDateChange({
+            prevVac: previous.lastVacLatestDate,
+            prevNonVac: previous.lastNonVacLatestDate,
+            newVac: result.latestVacDate,
+            newNonVac: result.latestNonVacDate
+          });
+        }
       }
     } catch (notifyError) {
       console.warn("[visa-slot] Notification error (non-fatal):", notifyError);
@@ -281,6 +286,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       emailjsServiceId: sanitize(message.emailjsServiceId),
       emailjsTemplateId: sanitize(message.emailjsTemplateId),
       emailjsPublicKey: sanitize(message.emailjsPublicKey),
+      notifyDateChange: Boolean(message.notifyDateChange),
       debugEnabled: Boolean(message.debugEnabled)
     };
 

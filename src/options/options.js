@@ -47,6 +47,7 @@ const emailToInput = document.getElementById("emailTo");
 const emailjsServiceIdInput = document.getElementById("emailjsServiceId");
 const emailjsTemplateIdInput = document.getElementById("emailjsTemplateId");
 const emailjsPublicKeyInput = document.getElementById("emailjsPublicKey");
+const notifyDateChangeInput = document.getElementById("notifyDateChange");
 const debugEnabledInput = document.getElementById("debugEnabled");
 
 for (const cat of VISA_CATEGORIES) {
@@ -73,6 +74,7 @@ async function load() {
     emailjsServiceId = "",
     emailjsTemplateId = "",
     emailjsPublicKey = "",
+    notifyDateChange = true,
     debugEnabled = false
   } = await chrome.storage.sync.get({
     intervalMinutes: 5,
@@ -83,6 +85,7 @@ async function load() {
     emailjsServiceId: "",
     emailjsTemplateId: "",
     emailjsPublicKey: "",
+    notifyDateChange: true,
     debugEnabled: false
   });
 
@@ -103,6 +106,7 @@ async function load() {
   emailjsServiceIdInput.value = emailjsServiceId;
   emailjsTemplateIdInput.value = emailjsTemplateId;
   emailjsPublicKeyInput.value = emailjsPublicKey;
+  notifyDateChangeInput.checked = notifyDateChange;
   debugEnabledInput.checked = debugEnabled;
 
   updateTargetUrl();
@@ -127,6 +131,7 @@ saveBtn.addEventListener("click", async () => {
     emailjsServiceId: emailjsServiceIdInput.value.trim(),
     emailjsTemplateId: emailjsTemplateIdInput.value.trim(),
     emailjsPublicKey: emailjsPublicKeyInput.value.trim(),
+    notifyDateChange: notifyDateChangeInput.checked,
     debugEnabled: debugEnabledInput.checked
   });
 
