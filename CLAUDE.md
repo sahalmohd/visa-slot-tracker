@@ -2,7 +2,9 @@
 
 ## What this is
 
-A Chrome Extension (Manifest V3) that monitors US visa appointment availability on checkvisaslots.com and the State Department visa bulletin (travel.state.gov). Sends desktop, email, and ntfy push notifications when changes are detected. A GitHub Actions workflow (`.github/workflows/check.yml`) runs the same detection headlessly on a 15-minute cron via Playwright, independent of the browser — see `ci/`.
+A Chrome Extension (Manifest V3) that monitors US visa appointment availability on checkvisaslots.com and the State Department visa bulletin (travel.state.gov). Sends desktop, email, and ntfy push notifications when changes are detected.
+
+A GitHub Actions workflow (`.github/workflows/check.yml` + `ci/check.mjs`) was built to run the same detection headlessly on a 15-minute cron via Playwright, independent of the browser — **it's currently disabled**. Confirmed (not just suspected) on two separate GitHub-hosted runner IPs: checkvisaslots.com's Vercel checkpoint returns HTTP 429 and travel.state.gov's Cloudflare WAF returns HTTP 403, both instantly, both to GitHub's shared IP ranges specifically — not a bug in the checker, which passes both checks when run from a normal (non-datacenter) network. If revisited, a self-hosted runner on an unblocked network is the only mitigation confirmed to work; don't re-enable the schedule without one.
 
 ## Source layout
 
@@ -48,7 +50,7 @@ ci/
 3. Both results merged via `mergeLatestDates()`; `promoteIfDatesInTargetMonth()` flips isOpen if dates land in the target month
 4. Results written to `chrome.storage.local`; popup reads via `getStatus` message
 5. Notifications fire for: slot open (closed→open), date change, bulletin published, manual check — each fans out through `notifications.js`'s `dispatch()` to desktop + email + ntfy push independently (one channel failing/being disabled never blocks the others)
-6. Independently of the browser, `.github/workflows/check.yml` runs `ci/check.mjs` on a cron: same detection logic via Playwright (headless Chromium, real UA — needed because both target sites sit behind bot-detection that blocks plain `fetch`), diffing against `ci/state.json` and publishing to ntfy directly (no email path in CI)
+6. (Disabled) `.github/workflows/check.yml` was meant to run `ci/check.mjs` on a cron independently of the browser: same detection logic via Playwright (headless Chromium, real UA — needed because both target sites sit behind bot-detection that blocks plain `fetch`), diffing against `ci/state.json` and publishing to ntfy directly (no email path in CI). Disabled via `gh workflow disable` because GitHub's runner IPs are blocked by both sites — see above.
 
 ## Detection strategies
 

@@ -1,12 +1,11 @@
 # Visa Slot Tracker
 
-A Chrome extension that monitors [checkvisaslots.com](https://checkvisaslots.com) for US visa appointment availability and the [State Department visa bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html) for new publications. Sends desktop, email, and phone push notifications when changes are detected. A GitHub Actions workflow runs the same checks headlessly every 15 minutes, so alerts keep arriving even when the laptop is closed.
+A Chrome extension that monitors [checkvisaslots.com](https://checkvisaslots.com) for US visa appointment availability and the [State Department visa bulletin](https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html) for new publications. Sends desktop, email, and phone push notifications when changes are detected.
 
 ## Features
 
 - **Configurable visa category** — supports 30 visa types (H-1B, L-1, B1/B2, F-1, etc.)
 - **Automatic slot monitoring** — checks every 1–60 minutes (configurable) while the browser is running
-- **Always-on checking** — a GitHub Actions cron job runs the same detection headlessly every 15 minutes, independent of the browser
 - **Dual detection** — text-based HTML parsing + DOM-based calendar color parsing
 - **Target month tracking** — alerts when slots open for your chosen month
 - **Visa bulletin tracking** — notifies when the upcoming bulletin changes from "Coming Soon" to published
@@ -48,12 +47,12 @@ visa-slot-tracker/
 │   └── options/                   # Settings page
 │       ├── options.html
 │       └── options.js
-├── ci/                             # Headless checker run by GitHub Actions
+├── ci/                             # Headless checker (currently disabled — see GitHub Actions Checker section)
 │   ├── check.mjs                  # Playwright-driven slot + bulletin check, publishes to ntfy
 │   ├── config.json                # Target month / visa category for the CI run
 │   └── state.json                 # Last-known state, committed back by the workflow
 ├── .github/workflows/
-│   └── check.yml                  # Runs ci/check.mjs on a 15-minute cron
+│   └── check.yml                  # Runs ci/check.mjs on a 15-minute cron — disabled, blocked from GitHub's IPs
 └── README.md
 ```
 
@@ -121,7 +120,7 @@ visa-slot-tracker/
 | Manual check + open | 5 (urgent) | 🚨 `rotating_light` |
 | Date changed | 4 (high) | 📅 `calendar` |
 | Bulletin published | 4 (high) | 📰 `newspaper` |
-| Checker run failed (GitHub Actions only) | 2 (low) | ⚠️ `warning` |
+| Checker run failed (GitHub Actions only — currently disabled, see below) | 2 (low) | ⚠️ `warning` |
 
 ### When Notifications Are Sent
 
@@ -131,24 +130,25 @@ visa-slot-tracker/
 | Date changed | Biometrics or CA date changes from previous check | ✓ | ✓ | ✓ |
 | Manual check | "Check now" clicked and slots are currently open | | ✓ | ✓ |
 | Bulletin published | Upcoming visa bulletin changes from "Coming Soon" → published | ✓ | ✓ | ✓ |
-| Checker run failed | GitHub Actions run hit an error (e.g. blocked by a bot checkpoint) | | | ✓ |
 
-Email and push are each independently toggled in Settings — enable either, both, or neither. Desktop notifications only fire while the extension's service worker is active (the browser is running); email and push fire from both the extension and the GitHub Actions checker described below.
+Email and push are each independently toggled in Settings — enable either, both, or neither. Both only fire while the extension's service worker is active (the browser is running) — see the note on the GitHub Actions checker below for why that's currently the only working path.
 
-## Always-On Checking with GitHub Actions (Optional)
+## GitHub Actions Checker (built, currently disabled)
 
-The extension only checks while Chrome is running. A GitHub Actions workflow (`.github/workflows/check.yml`) runs the same detection headlessly on a schedule, so alerts keep coming even with the laptop closed — using Playwright (headless Chromium) since both target sites sit behind bot-detection that blocks plain HTTP requests.
+`.github/workflows/check.yml` + `ci/check.mjs` run the same detection headlessly via Playwright, intended to catch changes with the laptop closed. **It's disabled** — confirmed non-functional on GitHub-hosted runners, not just untested:
 
-### Setup
+- checkvisaslots.com's Vercel bot checkpoint returned `HTTP 429` to the runner on two separate runs (two different ephemeral IPs).
+- travel.state.gov's Cloudflare WAF returned `HTTP 403` on both of those same runs.
 
-1. **Make the repository public.** Scheduled workflows get unlimited free Actions minutes on public repos; a private repo would exceed the free 2,000 minutes/month at a 15-minute cadence. There are no secrets in the codebase — EmailJS and ntfy credentials live in `chrome.storage.sync` for the extension, and in repo secrets for CI.
-2. In the repo's **Settings → Secrets and variables → Actions**, add:
-   - `NTFY_TOPIC` — same topic you use in the extension, or a separate one if you'd rather tell the two sources apart.
-   - `NTFY_TOKEN` — optional, only if your ntfy server requires it.
-3. The workflow runs automatically every 15 minutes (`*/15 * * * *`). Trigger a run manually from the **Actions** tab (`workflow_dispatch`) to test it.
-4. To change the target month or visa category for the CI run, edit `ci/config.json` and commit.
+This isn't a bug in the checker — the same Playwright code, run from this project's own network, successfully passes both checks (verified manually). Both sites appear to block generic cloud/datacenter IP ranges at the edge, which includes GitHub's shared runners regardless of browser fingerprint or user-agent.
 
-### Testing the checker locally
+**What would actually fix it**, if revisited later:
+- A **self-hosted GitHub Actions runner** on a device on a network that isn't blocked (e.g. an always-on machine at home) — the most reliable option, since it reuses a network already confirmed to work.
+- A **paid proxy or different hosting provider**, tested for real before committing — unverified, and there's no strong reason to expect it fares better against Cloudflare specifically.
+
+### Running it locally anyway
+
+The checker still works from a normal machine/network (proven — see above), useful for spot-checking or if you want to revisit always-on coverage later:
 
 ```
 npm install
@@ -159,13 +159,13 @@ NTFY_TOPIC=your-topic node ci/check.mjs   # runs for real, including a live ntfy
 
 `--dry-run` never touches `ci/state.json` or ntfy, so it's safe to run repeatedly while testing.
 
-### Notes
+### If you re-enable it
 
-- 15-minute cron is best-effort — GitHub can delay scheduled runs by 5–20+ minutes under load, especially at common intervals like `:00`/`:15`/`:30`/`:45`.
-- GitHub disables scheduled workflows after 60 days of repo inactivity. The workflow commits `ci/state.json` on every change, which resets that clock; if the repo goes fully quiet (no state changes, no other commits) for two months, re-enable it from the Actions tab.
-- `ci/state.json` is the CI equivalent of the extension's local storage — it's what the workflow diffs against to decide whether something changed. It's committed back to the repo after each run.
-- If both the extension (with push enabled) and the GitHub Actions checker are active and pointed at the same ntfy topic, you'll get every alert twice. Either leave the extension's push toggle off once CI is verified working, or point them at different topics.
-- If checkvisaslots.com's bot checkpoint blocks the runner, the workflow sends a low-priority "run failed" push instead of staying silent, and exits non-zero (visible as a red X in the Actions tab).
+- Re-enable from the repo's **Actions** tab, or `gh workflow enable check.yml`.
+- Needs repo secrets `NTFY_TOPIC` (required) and `NTFY_TOKEN` (optional) under **Settings → Secrets and variables → Actions**.
+- The repo needs to stay **public** for unlimited free Actions minutes at a 15-minute cadence (a private repo would exceed the 2,000 free minutes/month) — there are no secrets in the codebase itself, EmailJS/ntfy credentials live in `chrome.storage.sync` for the extension and in repo secrets for CI.
+- If both the extension (with push enabled) and the checker are active on the same ntfy topic, every alert arrives twice — point them at different topics, or leave the extension's push toggle off.
+- GitHub disables scheduled workflows after 60 days without repo activity.
 
 ## Detection Logic
 
@@ -185,7 +185,7 @@ If either strategy finds dates in the target month, the slot is marked as open.
 ## Notes
 
 - Relies on site content format; if markup changes, detection patterns may need updating.
-- If the site returns a **Vercel Security Checkpoint** in the extension, open the target URL in a normal tab, complete verification, then click **Check now**. The GitHub Actions checker handles this differently — see its Notes above.
+- If the site returns a **Vercel Security Checkpoint** in the extension, open the target URL in a normal tab, complete verification, then click **Check now**.
 - For calendar views, VAC dates are shown in green and Non-VAC in red; the tab parser uses these color cues.
-- Bulletin checks run on the same interval as slot checks (every alarm cycle, plus on install/startup).
-- The detection core (`src/background/detection.js`, `bulletin.js`, `config.js`, `dates.js`) and the calendar-reading probe (`src/shared/dom-probe.js`) are shared verbatim between the extension and the GitHub Actions checker, so both should always agree on what "open" means.
+- Bulletin checks run on the same interval as slot checks (every alarm cycle, plus on install/startup). If the bulletin check is failing (e.g. this network is blocked by Cloudflare), the popup shows a warning with the last successful check time instead of silently displaying a stale cached title — see `bulletinCheckError` / `bulletinLastCheckAt`.
+- The detection core (`src/background/detection.js`, `bulletin.js`, `config.js`, `dates.js`) and the calendar-reading probe (`src/shared/dom-probe.js`) are shared verbatim between the extension and `ci/check.mjs` (see GitHub Actions Checker above), so both agree on what "open" means even though the CI path is currently disabled.
