@@ -73,15 +73,12 @@ export function getVisaCategoryLabel() {
   return entry?.label || VISA_CATEGORY_SLUG;
 }
 
-// --- Load all settings from storage ---
+// --- Apply settings to module state (pure — no chrome.* access) ---
+// Shared by the extension (after reading chrome.storage.sync) and the
+// Node-based CI checker (after reading ci/config.json).
 
-export async function loadSettings() {
-  const data = await chrome.storage.sync.get({
-    targetMonth: DEFAULT_TARGET_MONTH,
-    visaCategory: DEFAULT_VISA_CATEGORY
-  });
-
-  TARGET_MONTH_LABEL = data.targetMonth || DEFAULT_TARGET_MONTH;
+export function applySettings({ targetMonth, visaCategory } = {}) {
+  TARGET_MONTH_LABEL = targetMonth || DEFAULT_TARGET_MONTH;
   TARGET_MONTH_INFO = parseTargetMonthLabel(TARGET_MONTH_LABEL);
   TARGET_RANGE_START_EPOCH = Date.UTC(TARGET_MONTH_INFO.year, 0, 1);
   TARGET_RANGE_END_EPOCH = Date.UTC(
@@ -90,7 +87,18 @@ export async function loadSettings() {
     0, 23, 59, 59, 999
   );
 
-  VISA_CATEGORY_SLUG = data.visaCategory || DEFAULT_VISA_CATEGORY;
+  VISA_CATEGORY_SLUG = visaCategory || DEFAULT_VISA_CATEGORY;
+}
+
+// --- Load all settings from storage ---
+
+export async function loadSettings() {
+  const data = await chrome.storage.sync.get({
+    targetMonth: DEFAULT_TARGET_MONTH,
+    visaCategory: DEFAULT_VISA_CATEGORY
+  });
+
+  applySettings(data);
 }
 
 // Backward-compatible alias

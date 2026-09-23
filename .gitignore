@@ -1,5 +1,9 @@
 .DS_Store
 .codex/
 .playwright-mcp/
+.sfdx/
 *.png
 !icons/*.png
+
+node_modules/
+package-lock.json.bak

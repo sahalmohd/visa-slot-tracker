@@ -1,0 +1,13 @@
+{
+  "name": "visa-slot-tracker",
+  "private": true,
+  "type": "module",
+  "description": "Chrome extension + headless checker for visa slot and bulletin tracking.",
+  "scripts": {
+    "check": "node ci/check.mjs",
+    "check:dry": "node ci/check.mjs --dry-run"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

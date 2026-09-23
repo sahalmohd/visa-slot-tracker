@@ -1,11 +1,15 @@
 import { DEFAULT_INTERVAL_MINUTES, DEFAULT_TARGET_MONTH, DEFAULT_VISA_CATEGORY, ALARM_NAME } from "./constants.js";
-import { loadSettings, getTargetMonthLabel, getTargetMonthInfo, getTargetUrl, getVisaCategorySlug } from "./config.js";
-import { sanitize, parseLabelToEpoch } from "./dates.js";
+import { loadSettings, getTargetUrl, getVisaCategorySlug } from "./config.js";
+import { sanitize } from "./dates.js";
 import { detectOpenJulySlot } from "./detection.js";
 import { sendEmailNotification } from "./email.js";
-import { setBadge, notifyOpen, notifyDateChange, notifyBulletinPublished } from "./notifications.js";
+import { sendPushNotification } from "./push.js";
+import {
+  setBadge, notifyOpen, notifyDateChange, notifyBulletinPublished, notifyManualCheck
+} from "./notifications.js";
 import { detectFromOpenTab } from "./tab-detection.js";
 import { runBulletinCheck } from "./bulletin.js";
+import { mergeLatestDates, promoteIfDatesInTargetMonth } from "../shared/merge.js";
 
 async function getSettings() {
   const { intervalMinutes } = await chrome.storage.sync.get({
@@ -66,16 +70,7 @@ async function runCheck(trigger = "alarm") {
           result.isOpen = true;
           result.evidence = fallback.result.evidence || result.evidence;
         }
-        const fetchVacEpoch = parseLabelToEpoch(result.latestVacDate);
-        const tabVacEpoch = parseLabelToEpoch(fallback.result.latestVacDate);
-        if (tabVacEpoch > fetchVacEpoch) {
-          result.latestVacDate = fallback.result.latestVacDate;
-        }
-        const fetchNonVacEpoch = parseLabelToEpoch(result.latestNonVacDate);
-        const tabNonVacEpoch = parseLabelToEpoch(fallback.result.latestNonVacDate);
-        if (tabNonVacEpoch > fetchNonVacEpoch) {
-          result.latestNonVacDate = fallback.result.latestNonVacDate;
-        }
+        mergeLatestDates(result, fallback.result.latestVacDate, fallback.result.latestNonVacDate);
       }
     }
   } catch (error) {
@@ -86,22 +81,7 @@ async function runCheck(trigger = "alarm") {
 
   if (result) {
     // If dates were found in the target month, treat it as open
-    const targetInfo = getTargetMonthInfo();
-    const targetLabel = getTargetMonthLabel();
-    const targetMonthStart = Date.UTC(targetInfo.year, targetInfo.month, 1);
-    const targetMonthEnd = Date.UTC(targetInfo.year, targetInfo.month + 1, 0, 23, 59, 59, 999);
-    const vacEpoch = parseLabelToEpoch(result.latestVacDate);
-    const nonVacEpoch = parseLabelToEpoch(result.latestNonVacDate);
-    const vacInTargetMonth = vacEpoch >= targetMonthStart && vacEpoch <= targetMonthEnd;
-    const nonVacInTargetMonth = nonVacEpoch >= targetMonthStart && nonVacEpoch <= targetMonthEnd;
-
-    if ((vacInTargetMonth || nonVacInTargetMonth) && !result.isOpen) {
-      result.isOpen = true;
-      const parts = [];
-      if (vacInTargetMonth) parts.push(`Biometrics: ${result.latestVacDate}`);
-      if (nonVacInTargetMonth) parts.push(`CA: ${result.latestNonVacDate}`);
-      result.evidence = `${targetLabel} slots detected — ${parts.join(", ")}`;
-    }
+    promoteIfDatesInTargetMonth(result);
 
     const previous = await chrome.storage.local.get({
       lastOpen: false,
@@ -206,15 +186,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const checkResult = await runCheck("manual");
       if (checkResult.ok && checkResult.isOpen) {
         try {
-          await sendEmailNotification({
-            subject: `Visa Slot Alert: ${getTargetMonthLabel()} slots detected`,
-            message: `Manual check found ${getTargetMonthLabel()} slots. Biometrics: ${checkResult.latestVacDate}, CA: ${checkResult.latestNonVacDate}.`,
+          await notifyManualCheck({
             evidence: checkResult.evidence || "Manual check",
             vacLatestDate: checkResult.latestVacDate,
             nonVacLatestDate: checkResult.latestNonVacDate
           });
         } catch (e) {
-          console.warn("[visa-slot] Manual check email error:", e);
+          console.warn("[visa-slot] Manual check notification error:", e);
         }
       }
       sendResponse(checkResult);
@@ -234,6 +212,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         lastNonVacLatestDate: "Not found",
         lastCheckSource: "",
         lastNotificationAt: 0,
+        lastPushAt: 0,
+        lastPushError: "",
         bulletinCurrentTitle: "",
         bulletinCurrentUrl: "",
         bulletinUpcomingTitle: "",
@@ -286,6 +266,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       emailjsServiceId: sanitize(message.emailjsServiceId),
       emailjsTemplateId: sanitize(message.emailjsTemplateId),
       emailjsPublicKey: sanitize(message.emailjsPublicKey),
+      ntfyEnabled: Boolean(message.ntfyEnabled),
+      ntfyTopic: sanitize(message.ntfyTopic),
+      ntfyToken: sanitize(message.ntfyToken),
       notifyDateChange: Boolean(message.notifyDateChange),
       debugEnabled: Boolean(message.debugEnabled)
     };
@@ -314,6 +297,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           force: true
         })
       )
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) =>
+        sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) })
+      );
+    return true;
+  }
+
+  if (message?.type === "sendTestPush") {
+    sendPushNotification({
+      title: "Visa Slot Alert: test push",
+      message: "This is a test push from your Chrome extension ntfy setup.",
+      priority: 3,
+      tags: ["white_check_mark"],
+      force: true
+    })
       .then(() => sendResponse({ ok: true }))
       .catch((error) =>
         sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) })

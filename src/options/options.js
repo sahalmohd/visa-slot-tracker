@@ -40,6 +40,7 @@ const targetMonthSelect = document.getElementById("targetMonthSelect");
 const targetYearInput = document.getElementById("targetYear");
 const saveBtn = document.getElementById("save");
 const testEmailBtn = document.getElementById("testEmail");
+const testPushBtn = document.getElementById("testPush");
 const statusEl = document.getElementById("status");
 const targetUrlEl = document.getElementById("targetUrl");
 const emailEnabledInput = document.getElementById("emailEnabled");
@@ -47,6 +48,9 @@ const emailToInput = document.getElementById("emailTo");
 const emailjsServiceIdInput = document.getElementById("emailjsServiceId");
 const emailjsTemplateIdInput = document.getElementById("emailjsTemplateId");
 const emailjsPublicKeyInput = document.getElementById("emailjsPublicKey");
+const ntfyEnabledInput = document.getElementById("ntfyEnabled");
+const ntfyTopicInput = document.getElementById("ntfyTopic");
+const ntfyTokenInput = document.getElementById("ntfyToken");
 const notifyDateChangeInput = document.getElementById("notifyDateChange");
 const debugEnabledInput = document.getElementById("debugEnabled");
 
@@ -74,6 +78,9 @@ async function load() {
     emailjsServiceId = "",
     emailjsTemplateId = "",
     emailjsPublicKey = "",
+    ntfyEnabled = false,
+    ntfyTopic = "",
+    ntfyToken = "",
     notifyDateChange = true,
     debugEnabled = false
   } = await chrome.storage.sync.get({
@@ -85,6 +92,9 @@ async function load() {
     emailjsServiceId: "",
     emailjsTemplateId: "",
     emailjsPublicKey: "",
+    ntfyEnabled: false,
+    ntfyTopic: "",
+    ntfyToken: "",
     notifyDateChange: true,
     debugEnabled: false
   });
@@ -106,6 +116,9 @@ async function load() {
   emailjsServiceIdInput.value = emailjsServiceId;
   emailjsTemplateIdInput.value = emailjsTemplateId;
   emailjsPublicKeyInput.value = emailjsPublicKey;
+  ntfyEnabledInput.checked = ntfyEnabled;
+  ntfyTopicInput.value = ntfyTopic;
+  ntfyTokenInput.value = ntfyToken;
   notifyDateChangeInput.checked = notifyDateChange;
   debugEnabledInput.checked = debugEnabled;
 
@@ -131,6 +144,9 @@ saveBtn.addEventListener("click", async () => {
     emailjsServiceId: emailjsServiceIdInput.value.trim(),
     emailjsTemplateId: emailjsTemplateIdInput.value.trim(),
     emailjsPublicKey: emailjsPublicKeyInput.value.trim(),
+    ntfyEnabled: ntfyEnabledInput.checked,
+    ntfyTopic: ntfyTopicInput.value.trim(),
+    ntfyToken: ntfyTokenInput.value.trim(),
     notifyDateChange: notifyDateChangeInput.checked,
     debugEnabled: debugEnabledInput.checked
   });
@@ -151,6 +167,18 @@ testEmailBtn.addEventListener("click", async () => {
     statusEl.textContent = "Test email sent successfully.";
   } else {
     statusEl.textContent = `Test email failed: ${result?.error || "Unknown error"}`;
+  }
+});
+
+testPushBtn.addEventListener("click", async () => {
+  statusEl.textContent = "Sending test push...";
+  const result = await chrome.runtime.sendMessage({
+    type: "sendTestPush"
+  });
+  if (result?.ok) {
+    statusEl.textContent = "Test push sent successfully.";
+  } else {
+    statusEl.textContent = `Test push failed: ${result?.error || "Unknown error"}`;
   }
 });
 

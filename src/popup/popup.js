@@ -10,6 +10,7 @@ const debugSection = document.getElementById("debugSection");
 const visaCategoryEl = document.getElementById("visaCategory");
 const bulletinCurrentEl = document.getElementById("bulletinCurrent");
 const bulletinUpcomingEl = document.getElementById("bulletinUpcoming");
+const bulletinMetaEl = document.getElementById("bulletinMeta");
 
 const VISA_CATEGORIES = {
   "b1-b2-regular": "B1/B2 (Regular)", "b1-regular": "B1 (Regular)",
@@ -50,7 +51,9 @@ function setStatus({
   bulletinCurrentUrl,
   bulletinUpcomingTitle,
   bulletinUpcomingUrl,
-  bulletinUpcomingIsComingSoon
+  bulletinUpcomingIsComingSoon,
+  bulletinLastCheckAt,
+  bulletinCheckError
 }) {
   if (lastCheckError) {
     statusEl.textContent = `Error: ${lastCheckError}`;
@@ -123,6 +126,20 @@ function setStatus({
     bulletinUpcomingEl.appendChild(badgeSpan);
   } else {
     bulletinUpcomingEl.textContent = "Upcoming: —";
+  }
+
+  // Bulletin: last check / error — makes a stale cached value visible
+  // instead of silently showing an old title forever (e.g. when
+  // travel.state.gov is blocking this network's requests).
+  if (bulletinCheckError) {
+    bulletinMetaEl.textContent = `⚠ Bulletin check failing: ${bulletinCheckError.slice(0, 140)} (last success: ${formatTime(bulletinLastCheckAt)})`;
+    bulletinMetaEl.className = "error";
+  } else if (bulletinLastCheckAt) {
+    bulletinMetaEl.textContent = `Bulletin checked: ${formatTime(bulletinLastCheckAt)}`;
+    bulletinMetaEl.className = "muted";
+  } else {
+    bulletinMetaEl.textContent = "";
+    bulletinMetaEl.className = "muted";
   }
 }
 

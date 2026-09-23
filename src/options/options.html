@@ -77,6 +77,10 @@
         background: #0f766e;
         margin-left: 8px;
       }
+      #testPush {
+        background: #7c3aed;
+        margin-left: 8px;
+      }
     </style>
   </head>
   <body>
@@ -141,6 +145,23 @@
         </div>
 
         <div class="row">
+          <label class="inline" for="ntfyEnabled">
+            <input id="ntfyEnabled" type="checkbox" />
+            Enable ntfy push alerts
+          </label>
+        </div>
+
+        <div class="row">
+          <label for="ntfyTopic">ntfy topic</label>
+          <input id="ntfyTopic" type="text" placeholder="e.g. a long random name" />
+        </div>
+
+        <div class="row">
+          <label for="ntfyToken">ntfy access token (optional)</label>
+          <input id="ntfyToken" type="password" placeholder="tk_xxxxxxxxxxxxxxxxx" />
+        </div>
+
+        <div class="row">
           <label class="inline" for="notifyDateChange">
             <input id="notifyDateChange" type="checkbox" />
             Notify when Biometrics or CA dates change
@@ -156,6 +177,7 @@
 
         <button id="save">Save settings</button>
         <button id="testEmail" type="button">Send test email</button>
+        <button id="testPush" type="button">Send test push</button>
         <p class="small">
           Notifies when new Biometrics or CA dates are detected.
         </p>
@@ -164,6 +186,14 @@
           <code>subject</code>, <code>message</code>, <code>target_month</code>,
           <code>target_url</code>, <code>evidence</code>, <code>vac_latest_date</code>,
           <code>non_vac_latest_date</code>, <code>checked_at</code>.
+        </p>
+        <p class="small">
+          Push uses <a href="https://ntfy.sh" target="_blank" rel="noreferrer">ntfy.sh</a>.
+          Install the ntfy app and subscribe to your topic to receive alerts.
+          Anyone who knows your topic name can read and publish to it &mdash;
+          treat it like a password and use a long, hard-to-guess value.
+          The access token is optional and only needed if you've configured
+          ntfy to require auth for publishing.
         </p>
         <p id="status"></p>
       </div>
